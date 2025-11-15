@@ -1,7 +1,19 @@
 from typing import Union
+
 import mplhep
 
-def addMplLabel(
+mplm = {
+   "o":  20,   # ROOT: Full circle → Matplotlib: Circle
+   "s":  21,   # ROOT: Full square → Matplotlib: Square
+   "D":  22,   # ROOT: Full diamond → Matplotlib: Diamond
+   "^":  23,   # ROOT: Full triangle up → Matplotlib: Triangle up
+   "v":  24,   # ROOT: Full triangle down → Matplotlib: Triangle down
+   "<":  25,   # ROOT: Full triangle left → Matplotlib: Triangle left
+   ">":  26,   # ROOT: Full triangle right → Matplotlib: Triangle right
+   "p":  27    # ROOT: Star → Matplotlib: Pentagon
+}
+
+def add_label(
     loc: int = 0,
     mainText: str = "SND@LHC",
     extraText: str = "",
