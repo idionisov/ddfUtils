@@ -290,6 +290,7 @@ def stack_plot(
     palette: str = "deep",
     density: bool = False,
     alpha: float = 0.7,
+    hatch: str = None,
     draw_outline: bool = True,
     cols: dict = {
         "x": "x", "y": "y", "z": "z",
@@ -357,6 +358,7 @@ def stack_plot(
             step="post",
             color=colors[i],
             alpha=alpha,
+            hatch=hatch,
             label=labels[i],
             **kwargs
         )
@@ -364,3 +366,74 @@ def stack_plot(
             target_axes.step(x_edges_base[:-1], y_cumulative[i], where="post", color="black", linewidth=0.7)
 
     return target_axes, y_cumulative
+
+
+def errorband(
+    input_object,
+    ax=None,
+    density: bool = False,
+    color=None,
+    alpha: float = 0.3,
+    step: bool = True,
+    hatch: str = None,
+    cols: dict = {
+        "x": "x", "y": "y", "z": "z",
+        "ex": "ex", "ey": "ey", "exl": "exl",
+        "exh": "exh", "eyl": "eyl", "eyh": "eyh",
+    },
+    **kwargs
+):
+    """
+    Plot a ROOT/uproot object or string path ("file.root:hist") with a central curve and shaded/hatched uncertainty band.
+    """
+    label = kwargs.pop("label", None)
+    if label is None:
+        if isinstance(input_object, str):
+            label = input_object.split(":")[-1] if ":" in input_object else input_object
+        elif hasattr(input_object, "GetName"):
+            label = input_object.GetName()
+        elif hasattr(input_object, "name"):
+            label = input_object.name
+
+    data_frame = converters.to_pandas(input_object, cols=cols)
+    x_values = data_frame[cols["x"]].values
+    y_values = data_frame[cols["y"]].copy().values
+
+    if cols["ey"] in data_frame:
+        yerr_lower = data_frame[cols["ey"]].values
+        yerr_upper = data_frame[cols["ey"]].values
+    elif cols["eyl"] in data_frame and cols["eyh"] in data_frame:
+        yerr_lower = data_frame[cols["eyl"]].values
+        yerr_upper = data_frame[cols["eyh"]].values
+    else:
+        yerr_lower = np.zeros_like(y_values)
+        yerr_upper = np.zeros_like(y_values)
+
+    if density:
+        if cols["ex"] in data_frame:
+            bin_widths = 2.0 * data_frame[cols["ex"]].values
+        elif cols["exl"] in data_frame and cols["exh"] in data_frame:
+            bin_widths = (data_frame[cols["exl"]] + data_frame[cols["exh"]]).values
+        else:
+            bin_widths = np.ones_like(y_values)
+
+        total_integral = (y_values * bin_widths).sum()
+        if total_integral > 0:
+            scale_factor = total_integral * bin_widths
+            y_values = y_values / scale_factor
+            yerr_lower = yerr_lower / scale_factor
+            yerr_upper = yerr_upper / scale_factor
+
+    y_upper = y_values + yerr_upper
+    y_lower = y_values - yerr_lower
+
+    target_axes = ax if ax is not None else plt.gca()
+
+    if step:
+        band = target_axes.fill_between(x_values, y_lower, y_upper, step="post", color=color, alpha=alpha, hatch=hatch, **kwargs)
+        line = target_axes.step(x_values, y_values, where="post", color=color, label=label)
+    else:
+        band = target_axes.fill_between(x_values, y_lower, y_upper, color=color, alpha=alpha, hatch=hatch, **kwargs)
+        line = target_axes.plot(x_values, y_values, color=color, label=label)
+
+    return target_axes, line, band
